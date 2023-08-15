@@ -46,7 +46,6 @@ public class c2_TransformingSequence extends TransformingSequenceBase {
     public void transforming_sequence_2() {
         Flux<Integer> numbersFlux = numerical_service_2();
 
-        //todo: do your changes here
         Flux<String> resultSequence = numbersFlux.handle((i, sink) -> {
             if (i > 0) {
                 sink.next(">");
@@ -73,8 +72,7 @@ public class c2_TransformingSequence extends TransformingSequenceBase {
     @Test
     public void cast() {
         Flux<String> numbersFlux = object_service()
-                .cast(String.class); //todo: change this line only
-
+                .cast(String.class);
 
         StepVerifier.create(numbersFlux)
                 .expectNext("1", "2", "3", "4", "5")
@@ -102,7 +100,6 @@ public class c2_TransformingSequence extends TransformingSequenceBase {
      */
     @Test
     public void sequence_sum() {
-        //todo: change code as you need
         Mono<Integer> sum = numerical_service()
                 .reduce(Integer::sum);
 
