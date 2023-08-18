@@ -3,6 +3,7 @@ import reactor.core.publisher.Flux;
 import reactor.core.publisher.Mono;
 import reactor.core.publisher.Sinks;
 import reactor.test.StepVerifier;
+import reactor.util.concurrent.Queues;
 
 import java.time.Duration;
 import java.util.List;
@@ -27,17 +28,19 @@ import java.util.List;
 public class c8_Sinks extends SinksBase {
 
     /**
-     * You need to execute operation that is submitted to legacy system which does not support Reactive API. You want to
-     * avoid blocking and let subscribers subscribe to `operationCompleted` Mono, that will emit `true` once submitted
+     * You need to execute operation that is submitted to legacy system which does not
+     * support Reactive API. You want to
+     * avoid blocking and let subscribers subscribe to `operationCompleted` Mono, that
+     * will emit `true` once submitted
      * operation is executed by legacy system.
      */
     @Test
     public void single_shooter() {
-        //todo: feel free to change code as you need
-        Mono<Boolean> operationCompleted = null;
+        Sinks.One<Boolean> sink = Sinks.one();
+        Mono<Boolean> operationCompleted = sink.asMono();
         submitOperation(() -> {
-
             doSomeWork(); //don't change this line
+            sink.tryEmitValue(true);
         });
 
         //don't change code below
@@ -47,18 +50,22 @@ public class c8_Sinks extends SinksBase {
     }
 
     /**
-     * Similar to previous exercise, you need to execute operation that is submitted to legacy system which does not
-     * support Reactive API. This time you need to obtain result of `get_measures_reading()` and emit it to subscriber.
-     * If measurements arrive before subscribers subscribe to `get_measures_readings()`, buffer them and emit them to
+     * Similar to previous exercise, you need to execute operation that is submitted to
+     * legacy system which does not
+     * support Reactive API. This time you need to obtain result of `get_measures_reading()`
+     * and emit it to subscriber.
+     * If measurements arrive before subscribers subscribe to `get_measures_readings()`, buffer
+     * them and emit them to
      * subscribers once they are subscribed.
      */
     @Test
     public void single_subscriber() {
-        //todo: feel free to change code as you need
-        Flux<Integer> measurements = null;
+        Sinks.Many<Integer> replay = Sinks.many().replay().all();
+        Flux<Integer> measurements = replay.asFlux();
         submitOperation(() -> {
-
             List<Integer> measures_readings = get_measures_readings(); //don't change this line
+            measures_readings.forEach(replay::tryEmitNext);
+            replay.tryEmitComplete();
         });
 
         //don't change code below
@@ -69,16 +76,19 @@ public class c8_Sinks extends SinksBase {
     }
 
     /**
-     * Same as previous exercise, but with twist that you need to emit measurements to multiple subscribers.
-     * Subscribers should receive only the signals pushed through the sink after they have subscribed.
+     * Same as previous exercise, but with twist that you need to emit measurements
+     * to multiple subscribers.
+     * Subscribers should receive only the signals pushed through the sink after they
+     * have subscribed.
      */
     @Test
     public void it_gets_crowded() {
-        //todo: feel free to change code as you need
-        Flux<Integer> measurements = null;
+        Sinks.Many<Integer> sink = Sinks.many().multicast().onBackpressureBuffer();
+        Flux<Integer> measurements = sink.asFlux();
         submitOperation(() -> {
-
             List<Integer> measures_readings = get_measures_readings(); //don't change this line
+            measures_readings.forEach(sink::tryEmitNext);
+            sink.tryEmitComplete();
         });
 
         //don't change code below
@@ -90,15 +100,19 @@ public class c8_Sinks extends SinksBase {
     }
 
     /**
-     * By default, if all subscribers have cancelled (which basically means they have all un-subscribed), sink clears
-     * its internal buffer and stops accepting new subscribers. For this exercise, you need to make sure that if all
-     * subscribers have cancelled, the sink will still accept new subscribers. Change this behavior by setting the
+     * By default, if all subscribers have cancelled (which basically means they have
+     * all un-subscribed), sink clears
+     * its internal buffer and stops accepting new subscribers. For this exercise, you
+     * need to make sure that if all
+     * subscribers have cancelled, the sink will still accept new subscribers. Change
+     * this behavior by setting the
      * `autoCancel` parameter.
      */
     @Test
     public void open_24_7() {
-        //todo: set autoCancel parameter to prevent sink from closing
-        Sinks.Many<Integer> sink = Sinks.many().multicast().onBackpressureBuffer();
+        Sinks.Many<Integer> sink = Sinks.many()
+                .multicast()
+                .onBackpressureBuffer(Queues.SMALL_BUFFER_SIZE, false);
         Flux<Integer> flux = sink.asFlux();
 
         //don't change code below
@@ -133,14 +147,15 @@ public class c8_Sinks extends SinksBase {
     }
 
     /**
-     * If you look closely, in previous exercises third subscriber was able to receive only two out of three
-     * measurements. That's because used sink didn't remember history to re-emit all elements to new subscriber.
+     * If you look closely, in previous exercises third subscriber was able to receive only
+     * two out of three
+     * measurements. That's because used sink didn't remember history to re-emit all
+     * elements to new subscriber.
      * Modify solution from `open_24_7` so third subscriber will receive all measurements.
      */
     @Test
     public void blue_jeans() {
-        //todo: enable autoCancel parameter to prevent sink from closing
-        Sinks.Many<Integer> sink = Sinks.many().multicast().onBackpressureBuffer();
+        Sinks.Many<Integer> sink = Sinks.many().replay().all();
         Flux<Integer> flux = sink.asFlux();
 
         //don't change code below
@@ -177,17 +192,17 @@ public class c8_Sinks extends SinksBase {
 
 
     /**
-     * There is a bug in the code below. May multiple producer threads concurrently generate data on the sink?
+     * There is a bug in the code below. May multiple producer threads concurrently
+     * generate data on the sink?
      * If yes, how? Find out and fix it.
      */
     @Test
     public void emit_failure() {
-        //todo: feel free to change code as you need
         Sinks.Many<Integer> sink = Sinks.many().replay().all();
 
         for (int i = 1; i <= 50; i++) {
             int finalI = i;
-            new Thread(() -> sink.tryEmitNext(finalI)).start();
+            new Thread(() -> sink.emitNext(finalI, Sinks.EmitFailureHandler.FAIL_FAST)).start();
         }
 
         //don't change code below
