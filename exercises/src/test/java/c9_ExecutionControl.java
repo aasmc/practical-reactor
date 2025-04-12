@@ -47,9 +47,8 @@ public class c9_ExecutionControl extends ExecutionControlBase {
     public void slow_down_there_buckaroo() {
         long threadId = Thread.currentThread().getId();
         Flux<String> notifications = readNotifications()
-                .doOnNext(System.out::println)
-                //todo: change this line only
-                ;
+                .delayElements(Duration.ofSeconds(1))
+                .doOnNext(System.out::println);
 
         StepVerifier.create(notifications
                                     .doOnNext(s -> assertThread(threadId)))
