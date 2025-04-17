@@ -206,7 +206,9 @@ public class c7_ErrorHandling extends ErrorHandlingBase {
      */
     @Test
     public void good_old_polling() {
-        Flux<String> alerts = nodeAlerts().repeat();
+        Flux<String> alerts = nodeAlerts()
+                .repeatWhenEmpty(flux -> flux.delayElements(Duration.ofSeconds(1)))
+                .repeat();
 
         //don't change below this line
         StepVerifier.create(alerts.take(2))
